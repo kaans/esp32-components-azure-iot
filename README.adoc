@@ -1,0 +1,30 @@
+# ESP components (including Azure IoT)
+
+:imagesdir: ./doc/images
+
+## Overview
+
+This repository contains several components for the
+https://docs.espressif.com/projects/esp-idf/en/latest/esp32/index.html[ESP-IDF]
+framework. These components aim to ease getting started with ESP and Azure IoT,
+but also include several components that can be used individually without Azure IoT.
+
+The following components are included:
+
+|====
+| Name | Description | Depends on
+
+| azure_iot | Azure IoT Device client supporting several authentication and communication methods | device_config
+| device_config | General device configuration for device individual settings | - 
+| ota_update_https | OTA updater to load firmware updates via https | -
+| example_gpio | Connect a button and LED for basic interaction with a user | -
+
+|====
+
+include::./doc/installation.adoc[leveloffset=+1]
+
+include::./doc/components.adoc[leveloffset=+1]
+
+include::./doc/configuration.adoc[leveloffset=+1]
+
+include::./doc/certificates.adoc[leveloffset=+1]

@@ -1,0 +1,31 @@
+# Components
+
+## Component: device configuration
+
+The device configuration stores device-specific data and settings which belong to the device.
+This includes, for example, the *device name* as well as a *device certificate and private key*.
+
+The intention behind this component is to extract all data and settings of an individual device
+that is likely to be used by other components as well. Each device should have a unique name that
+does not need to be specified at several places on the device, but rather stored at one central
+place and accessed from other components as needed.
+
+Additionally, the *NVS partition for factory and device specific settings* can be enabled here.
+
+
+## Component: OTA HTTPS update
+
+This component provides a convenient way to check for and apply new firmware images via OTA over HTTPS.
+It can start either a (temporary) task that, after having synchronized the clock via sntp,
+checks a given remote URL for firmware updates or allows to call that function directly from another thread.
+
+The function checks which firmware version is currently running and which version the remote image
+has. If they are equal, nothing will be updated. If they are different, the function downloads the
+image to the OTA partition which is not currently executed and applies it to the bootloader so that
+the new image will be started on next reboot (if the update was downloaded successfully).
+
+The update strategy is still quite basic, but can be extended to support more use cases like updating
+only if a newer version is present (currently all firmwares are applied which have a different version,
+even a lower version).
+
+include::./component_azure_iot.adoc[leveloffset=+1]

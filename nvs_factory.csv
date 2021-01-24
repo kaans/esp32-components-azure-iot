@@ -1,0 +1,9 @@
+key,type,encoding,value
+device,namespace,,
+client_crt,file,binary,../certs/client_certificate.pem
+client_key,file,binary,../certs/client_private_key.pem
+device_name,file,string,device_name.txt
+azure,namespace,,
+host_name,file,string,azure_iot_host_name.txt
+con_str,file,string,azure_iot_connection_string.txt
+id_scope,file,string,azure_iot_dps_id_scope.txt

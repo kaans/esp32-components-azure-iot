@@ -1,0 +1,31 @@
+# Installation
+
+This repository contains 
+The components in this repository are not intended to run standalone but need to be integrated
+as components into an
+https://docs.espressif.com/projects/esp-idf/en/latest/esp32/[esp-idf]
+based project. See
+https://github.com/kaans/esp32-azure-iot[the repository esp32-azure-iot-sample]
+for a working example of how to integrate and configure an application.
+
+To include the components into a project, you could either download the source code and copy
+it into a folder in the root of your esp-idf project, or clone it as a git submodule.
+
+The latter can be achieved with executing the following command in the root of your esp-idf project:
+
+[source,bash]
+----
+git submodule add git@github.com:kaans/esp32-components-azure-iot.git azure-iot-device
+----
+
+This will clone the repository into the folder `azure-iot-device` (rename it if you like).
+
+To include the components in your application build, add it to the list *EXTRA_COMPONENT_DIRS*
+in the file `CMakeLists.txt` in your project root.
+
+.Example of EXTRA_COMPONENT_DIRS with custom component folders
+[source]
+----
+list(APPEND EXTRA_COMPONENT_DIRS
+    "${CMAKE_CURRENT_LIST_DIR}/azure-iot-device/components")
+----

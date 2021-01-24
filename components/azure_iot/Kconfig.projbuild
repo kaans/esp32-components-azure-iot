@@ -1,0 +1,231 @@
+menu "Azure IoT"
+
+###
+# Azure IoT
+###
+
+config AZURE_IOT_ENABLE
+    bool "Enable Azure IoT"
+
+config AZURE_IOT_TRACE_ENABLE
+    bool "Enable trace log"
+    default n
+    depends on AZURE_IOT_ENABLE
+    help
+        If true, logging of traces will be enabled
+
+###
+# Azure IoT Hub
+###
+
+config AZURE_IOT_USE_TRUSTED_CERT
+    bool "Use trusted certificates"
+    default y
+    depends on AZURE_IOT_ENABLE
+    help 
+        Include trusted certificates for Azure services in code and
+        use them automatically.
+
+        On ESP32, the ESP-TLS certificate bundle is not included in Azure IoT
+        SDK, so the certificate bundle usually has to be set by enabling this
+        option.
+
+config AZURE_IOT_CONFIG_USE_NVS
+    bool "Load config from NVS factory partition"
+    default y
+    depends on AZURE_IOT_ENABLE
+    help 
+        Load all config values from the NVS partition "nvs_factory" instead
+        of including them directly in the firmware image.
+
+config AZURE_IOT_CONFIG_NVS_NAMESPACE
+    string "Name of the namespace"
+    default "azure"
+    depends on AZURE_IOT_CONFIG_USE_NVS
+    help
+        Name of the namespace where the azure configuration is stored
+
+choice AZURE_IOT_HUB_TRANSPORT
+    prompt "Choose transport protocol"
+    depends on AZURE_IOT_ENABLE
+
+config AZURE_IOT_HUB_TRANSPORT_MQTT
+    bool "MQTT"
+
+config AZURE_IOT_HUB_TRANSPORT_MQTT_OVER_WEBSOCKETS
+    bool "MQTT over websockets"
+    depends on n
+    help
+        Not yet supported/implemented/tested
+
+config AZURE_IOT_HUB_TRANSPORT_AMQP
+    bool "AMQP"
+    depends on n
+    help
+        Not yet supported/implemented/tested
+
+config AZURE_IOT_HUB_TRANSPORT_AMQP_OVER_WEBSOCKETS
+    bool "AMQP over websockets"
+    depends on n
+    help
+        Not yet supported/implemented/tested
+
+config AZURE_IOT_HUB_TRANSPORT_HTTP
+    bool "HTTP"
+
+endchoice
+
+choice AZURE_IOT_HUB_CONNECTION_METHOD
+    prompt "Choose connection method"
+    depends on AZURE_IOT_ENABLE
+
+config AZURE_IOT_HUB_CONNECTION_METHOD_CS
+    bool "Connection string"
+
+config AZURE_IOT_HUB_CONNECTION_METHOD_X509
+    bool "x509 client certificate"
+    help
+        Uses the device certificate and private key which are provided by the device_config
+        component. The storage location of the certificate and private key can
+        be configured in the device_config component.
+
+config AZURE_IOT_HUB_CONNECTION_METHOD_DPS
+    bool "Device provisioning service"
+
+endchoice
+
+config AZURE_IOT_HUB_CONNECTION_STRING
+    string "IOT Hub Connection String"
+	default ""
+    depends on AZURE_IOT_HUB_CONNECTION_METHOD_CS && !AZURE_IOT_CONFIG_USE_NVS
+    help
+        The IoT Hub Connection string - primary key in the format
+        "HostName=<hostname>;SharedAccessKeyName=<shared_access_key_name>;SharedAccessKey=<shared_access_key>."
+        You can get this from the Azure IoT CLI or the Azure Portal.
+        Only required if DPS is not used.
+
+config AZURE_IOT_HUB_CONNECTION_STRING_KEY
+    string "Name of the key where the connection string is stored"
+    default "con_str"
+    depends on AZURE_IOT_HUB_CONNECTION_METHOD_CS && AZURE_IOT_CONFIG_USE_NVS
+    help
+        Name of the key where the connection string is stored
+
+config AZURE_IOT_HUB_HOST_NAME
+    string "IOT Hub host name URL"
+    default ""
+    depends on AZURE_IOT_HUB_CONNECTION_METHOD_X509 && !AZURE_IOT_CONFIG_USE_NVS
+    help
+        The host name of the Azure IoT Hub to connect to.
+        Example: https://nameofiothub.azure-devices.net
+
+config AZURE_IOT_HUB_HOST_NAME_KEY
+    string "Name of the key where the host name is stored"
+    default "host_name"
+    depends on AZURE_IOT_HUB_CONNECTION_METHOD_X509 && AZURE_IOT_CONFIG_USE_NVS
+    help
+        Name of the key where the host name of the Azure IoT Hub to connect to is stored
+
+###
+# Azure IoT Hub Device Provisioning Service
+###
+
+menu "Azure Device Provisioning"
+    depends on AZURE_IOT_HUB_CONNECTION_METHOD_DPS
+
+config AZURE_DPS_ID_SCOPE
+    string "ID Scope of Device provisioning service"
+    default ""
+    depends on !AZURE_IOT_CONFIG_NVS_NAMESPACE
+    help
+        This is the unique ID scope of Device Provisioning Service (DPS), and can be found under "Overview"
+        section of your DPS on azure IoT portal
+
+config AZURE_DPS_ID_SCOPE_KEY
+    string "Name of the key where the id scope is stored"
+    default "id_scope"
+    depends on AZURE_IOT_CONFIG_NVS_NAMESPACE
+    help
+        Name of the key where the client certificate is stored
+
+choice AZURE_DPS_TRANSPORT
+    prompt "Choose transport protocol"
+
+config AZURE_DPS_TRANSPORT_MQTT
+    bool "MQTT"
+
+config AZURE_DPS_TRANSPORT_MQTT_OVER_WEBSOCKETS
+    bool "MQTT over websockets"
+    depends on n
+    help
+        Not yet supported/implemented/tested
+
+config AZURE_DPS_TRANSPORT_AMQP
+    bool "AMQP"
+    depends on n
+    help
+        Not yet supported/implemented/tested
+
+config AZURE_DPS_TRANSPORT_AMQP_OVER_WEBSOCKETS
+    bool "AMQP over websockets"
+    depends on n
+    help
+        Not yet supported/implemented/tested
+
+config AZURE_DPS_TRANSPORT_HTTP
+    bool "HTTP"
+
+endchoice
+
+choice AZURE_DPS_CONNECTION_METHOD
+    prompt "Choose connection method"
+    depends on AZURE_IOT_ENABLE
+
+config AZURE_DPS_CONNECTION_METHOD_CS
+    bool "Connection string"
+    depends on n
+
+config AZURE_DPS_CONNECTION_METHOD_X509
+    bool "x509 client certificate"
+    help
+        Uses the device certificate and private key which are provided by the device_config
+        component. The storage location of the certificate and private key can
+        be configured in the device_config component.
+
+endchoice
+
+config AZURE_DPS_CS_SYMMETRIC_KEY
+    string "Symmetric key for DPS provisioning"
+    default ""
+    depends on AZURE_DPS_CONNECTION_METHOD_CS && !AZURE_IOT_CONFIG_USE_NVS
+    help
+        The symmetric key (primary or secondary) of the enrollment group
+        or individual enrollment.
+
+config AZURE_DPS_CS_SYMMETRIC_KEY_KEY
+    string "Name of the key where the symmetric key is stored"
+    default "dps_symm_key"
+    depends on AZURE_DPS_CONNECTION_METHOD_CS && AZURE_IOT_CONFIG_USE_NVS
+    help
+        Name of the key where the symmetric key (primary or secondary)
+        for DPS provisioning is stored in NVS.
+
+config AZURE_DPS_CS_REGISTRATION_NAME
+    string "Registration name for DPS provisioning"
+    default ""
+    depends on AZURE_DPS_CONNECTION_METHOD_CS && !AZURE_IOT_CONFIG_USE_NVS
+    help
+        The registration name for the device in the enrollment group
+        or individual enrollment.
+
+config AZURE_DPS_CS_REGISTRATION_NAME_KEY
+    string "Name of the key where the registration name is stored"
+    default "dps_reg_name"
+    depends on AZURE_DPS_CONNECTION_METHOD_CS && AZURE_IOT_CONFIG_USE_NVS
+    help
+        Name of the key where the registration name for the device in the 
+        enrollment group or individual enrollment is stored in NVS.
+
+endmenu
+
+endmenu

@@ -1,0 +1,36 @@
+menu "Example GPIO"
+
+config EXAMPLE_GPIO_ENABLE
+	bool "Enable GPIO example"
+	default false
+	help
+		Enables the GPIO example.
+		An LED as well as a button can be controlled via this example implementation.
+		For both devices, a separate thread each must be started.
+		For the button, an isr handler is installed listening on any edge. A custom
+		callback can be given.
+
+config EXAMPLE_GPIO_LED_PIN
+	int "GPIO of LED"
+	default 26
+	depends on EXAMPLE_GPIO_ENABLE
+	help
+		Number of GPIO where the led is connected (if any).
+
+config EXAMPLE_GPIO_LED_BLINK_DELAY_MS
+	int "Delay in ms for blinking of LED"
+	default 1000
+	depends on EXAMPLE_GPIO_ENABLE
+	help
+		Delay in milliseconds between state changes of the LED (i.e. on/off).
+		A delay of 1000ms, for example, turns the LED on for 1000ms
+		and then turns it off for 1000ms.
+
+config EXAMPLE_GPIO_BUTTON_PIN
+	int "GPIO of button"
+	default 25
+	depends on EXAMPLE_GPIO_ENABLE
+	help
+		Number of GPIO where the button is connected (if any).
+		
+endmenu

@@ -1,0 +1,176 @@
+# Storing configuration
+
+The components support two different options to store configuration values:
+
+1. Compile configuration into the binary firmware image
+2. Store configuration on a https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/storage/nvs_flash.html[NVS partition]
+
+The first option is intended to be used during development, when having just a few devices or if
+OTA updates are not needed. It is easier to setup but less flexible regarding individual device
+configuration.
+
+The second option is intended when using OTA, especially when the number of devices is more than just
+a few. It will make automated deployment of new firmware images a lot easier, but requires additional
+setup in advance.
+
+## 1. Configuration in firmware
+
+Storing all configuration in the firmware does not require any special setup. All settings, like
+device name or certificates, are part of the firmware image and are flashed together with the
+application onto the device.
+
+The drawback of this approach is that the firmware image is usable only for that specific device.
+In case you want to flash several devices with the same application but different configuration
+settings (like different device names or certificates), you would need to generate a new binary firmware
+image for each device individually. Especially when using OTA, this will be cumbersome because all
+devices will need an individual image stored somewhere on a server. In that case, the NVS storage
+provides a solution to separate the individual device config from the generic application.
+
+The _configuration in firmware_ is enabled by default. In fact, it is enable if the _configuration in NVS_
+is disabled. Thus, make sure that the option *Load config from NVS factory partition* in the
+components is *disabled*.
+
+The menuconfig will show the available configuration options that let you set the required values directly.
+
+The _configuration in firmware_ is useful for local development or if you just have one or a few devices.
+
+## 2. Configuration in NVS
+
+The https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/storage/nvs_flash.html[non-volatile storage (NVS)]
+ is a library that is part of the ESP-IDF framework. It provides functionality
+to store data and configuration on a separate partition which can be mounted and read by the
+binary firmware image and OTA update images. It effectively allows to store all device specific (and
+application independent) configuration outside the application firmware image. Thus, the
+application image can be generic and deployed easily via OTA or any other mechanism to a large
+number of devices without having to include any specific configuration for each device.
+
+### Preparing the partition table
+
+First, the https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/partition-tables.html[partition table]
+must be created manually and configured in the `menuconfig`. Open the
+menu entry `Partition Table` and make sure the entry `Partition Table` is set to `Custom partition table CSV`.
+Enter the name of the CSV file containing the partition table in the entry `Custom partition CSV file`.
+
+.Custom partition table with OTA and NVS for 4MB flash
+:image:menuconfig_partition_table_custom.png[Custom partition table with OTA and NVS for 4MB flash]
+
+An example for a partition table with OTA and NVS enabled for a flash size of 4MB can be found in
+the file `partitions_4MB_nvs_ota.csv` and below:
+
+.Partition table with OTA and NVS enabled for a flash size of 4MB
+[source]
+----
+# Name,   Type, SubType, Offset,   Size, Flags
+# Note: if you have increased the bootloader size, make sure to update the offsets to avoid overlap
+nvs,      data, nvs,     ,        16K,
+otadata,  data, ota,     ,        8K,
+phy_init, data, phy,     ,        4K,
+nvs_factory,      data, nvs,     ,        16K,
+factory,  app,  factory, ,        1280K,
+ota_0,    app,  ota_0,   ,        1280K,
+ota_1,    app,  ota_1,   ,        1280K,
+----
+
+There are two nvs partitions: the default partition named *nvs* used to store e.g. wifi configuration and the partition named *nvs_factory* used for the components in this repository. The partition has a default size of 16K
+but can be increased if needed.
+
+The partition table is automatically built and flashed onto the device with the application image and bootloader.
+The NVS partition itself needs to be generated an flashed manually.
+
+### Generate the NVS partition
+
+The NVS is a partition that needs to be build and flashed manually to each device.
+It contains a namespaced key-value list of entries that can be read during runtime by the firmware image.
+
+The contents of the NVS is specified in a CSV file and can contain configuration values itself
+or load them from external files.
+See https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/storage/nvs_partition_gen.html[Partition generator utility]
+for an overview of the format of the CSV file and
+https://docs.espressif.com/projects/esp-idf/en/latest/api-reference/storage/nvs_flash.html[the NVS storage library]
+overview for a detailed overview.
+
+An example of the CSV file can be found in the file `nvs_factory.csv` or below:
+
+[source]
+----
+key,type,encoding,value
+device,namespace,,
+client_crt,file,binary,../certs/client_certificate.pem
+client_key,file,binary,../certs/client_private_key.pem
+device_name,file,string,device_name.txt
+azure,namespace,,
+host_name,file,string,azure_iot_host_name.txt
+con_str,file,string,azure_iot_connection_string.txt
+id_scope,file,string,azure_iot_dps_id_scope.txt
+----
+
+The first line is a header.
+The second line marks the beginning of the namespace _device_ which contains values used
+by the _device config_ component.
+The sixth line marks the beginning of the namespace _azure_ which contains values used 
+by the _azure iot_ component.
+
+The name of the namespace as well as the name of the keys can be configured individually in `menuconfig`
+if the defaults are not suitable.
+
+Espressif provides a 
+https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/storage/nvs_partition_gen.html[Partition generator utility]
+which creates a binary image of the NVS partition that can then be flashed to the ESP device.
+
+The python script is part of the esp-idf component _nvs-flash_ and can be called as follows (when
+the esp-idf framework is installed into ~/esp):
+
+.Generate binary NVS image with 16K size
+[source,bash]
+----
+python ~/esp/esp-idf/components/nvs_flash/nvs_partition_generator/nvs_partition_gen.py generate nvs_factory.csv nvs_factory_partition.bin 0x4000
+----
+
+The nvs partition described in `nvs_factory.csv` has nor been stored in the binary image file
+`nvs_factory_partition.bin`.
+
+### Flash the partition to the device
+
+The binary NVS partition image cannot be flashed with the `idf.py` tool but must be flashed separately
+to ech device individually. This can be done with the tool `esptool.py` and only needs to be done
+whenever the configuration and, thus, the binary image changes.
+
+First, you need to determine the destination address where the image needs to be flashed to. This address
+depends on the layout of your partition table and can be retrieved with the tool `gen_esp32part.py`.
+It is located in the esp-idf sdk at `components/partition_table/gen_esp32part.py`.
+
+To get the addresses of the partitions from the partition table, make sure to first build the current
+partition table (either with `idf.py build` or `idf.py partition_table`). The addresses are read from
+the generated binary partition image (by default located in `build/partition_table/partition-table.bin `).
+
+.Get addresses of partitions from binary partition table
+[source,bash]
+----
+python ~/esp/esp-idf/components/partition_table/gen_esp32part.py build/partition_table/partition-table.bin
+
+Parsing binary partition input...
+Verifying table...
+# ESP-IDF Partition Table
+# Name, Type, SubType, Offset, Size, Flags
+nvs,data,nvs,0x9000,16K,
+otadata,data,ota,0xd000,8K,
+phy_init,data,phy,0xf000,4K,
+nvs_factory,data,nvs,0x10000,16K,
+factory,app,factory,0x20000,1280K,
+ota_0,app,ota_0,0x160000,1280K,
+ota_1,app,ota_1,0x2a0000,1280K,
+----
+
+The address to flash the nvs partition image to is *0x10000*.
+
+Next, the binary image can be flashed to the device. The following command uses 
+https://github.com/espressif/esptool[esptool.py] for flashing the image to the device.
+Make sure to *adjust the port*, the *target address* and the *name of the binary image file*.
+
+[source,bash]
+----
+esptool.py -p COM3 --before default_reset --after no_reset write_flash 0x10000 nvs_factory_partition.bin
+----
+
+The NVS partition can now be access by the application. Feel free to store any device specific data
+on there so that the application image can be generated as generic as possible.

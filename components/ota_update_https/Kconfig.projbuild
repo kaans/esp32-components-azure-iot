@@ -1,0 +1,17 @@
+menu "OTA Update HTTPS"
+
+config OTA_UPDATE_HTTPS_ENABLE
+	bool "Enable OTA updates via HTTPS"
+	default false
+	help
+		Enables OTA updates via HTTPS.
+
+config OTA_UPDATE_HTTPS_URL
+	string "URL of the update image"
+	depends on OTA_UPDATE_HTTPS_ENABLE
+	help
+		URL of the update image. The OTA process checks if the
+		image behind that URL has a hight version than the
+		current application image.
+
+endmenu

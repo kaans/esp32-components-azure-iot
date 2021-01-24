@@ -1,0 +1,23 @@
+# Component: Azure IoT
+
+## Supported Azure IoT client functionality
+
+The following table provides an overview of the functions which are currently supported by the
+azure_iot component. In general, only client functionality is supported.
+
+Basically all of the options listed are supported by the Azure IoT SDK, but most of them are not
+implemented, yet. Some of the non-implemented functionality is already prepared in code, but
+disabled and, thus, not yet usable.
+
+.Azure IoT supported functionality
+|===
+| Functionality | Azure IoT Hub | Azure IoT Hub Device Provisioning Service
+
+| MQTT | yes | yes
+| MQTT-WS | not implemented | not implemented 
+| AQMP | not implemented | not implemented 
+| AMQP-WS | not implemented | not implemented 
+| HTTPS | yes | yes
+| Symmetric key | yes | no (HSM_TYPE_SYMM_KEY needs to be set, otherwise it works; you can set it in port/CMakeLists.txt where HSM_TYPE_X509 is already defined)
+| x509 certificate | yes | yes
+|===

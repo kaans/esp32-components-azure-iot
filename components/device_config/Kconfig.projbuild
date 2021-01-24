@@ -1,0 +1,83 @@
+menu "Device config"
+
+#**********
+#** NVS storage
+#**********
+			
+config DEVICE_CONFIG_NVS_FACTORY_ENABLE
+	bool "Enable nvs partition for factory settings"
+	default n
+	help
+		Enable custom NVS partition for factory data
+
+config DEVICE_CONFIG_NVS_FACTORY_PARTITION_NAME
+	string "Name of the nvs partition"
+	default "nvs_factory"
+	depends on DEVICE_CONFIG_NVS_FACTORY_ENABLE
+	help
+		Name of the nvs partition
+
+config DEVICE_CONFIG_NVS_FACTORY_NAMESPACE
+	string "Namespace of the device config"
+	default "device"
+	depends on DEVICE_CONFIG_NVS_FACTORY_ENABLE
+	help
+		Namespace of the device config
+
+#*********
+#** device name
+#**********
+		
+config DEVICE_NAME
+    string "device name"
+	default "iot_device"
+	depends on !DEVICE_CONFIG_NVS_FACTORY_ENABLE
+    help
+        The name of this device
+
+config DEVICE_NAME_KEY
+    string "Name of the key where the device name is stored in NVS"
+    default "device_name"
+    depends on DEVICE_CONFIG_NVS_FACTORY_ENABLE
+    help
+        Name of the key where the device name is stored in NVS
+		
+
+#**********
+#** client certificates
+#**********
+
+config DEVICE_CONFIG_CLIENT_CERT_ENABLE
+	bool "Enable client certificate and private key"
+	default n
+	help
+		If enabled, the client key and certificate are included in the
+		compiled binary image.
+
+		If NVS is not used, the certificate and key must reside in a
+		folder "certs/" in the project root and named exactly as following:
+		- certs/client_certificate.pem
+		- certs/client_private_key.pem
+
+		If NVS is used, the NVS key can be configured where the certificate
+		and private key are stored inside the NVS.
+		To enable NVS, the config option DEVICE_CONFIG_NVS_FACTORY_ENABLE
+		mus be enabled.
+		
+
+config DEVICE_CONFIG_CLIENT_CERT_KEY
+	string "Name of the key where the client certificate is stored"
+	default "client_crt"
+	depends on DEVICE_CONFIG_NVS_FACTORY_ENABLE
+	help
+		Name of the key where the client certificate is stored
+
+config DEVICE_CONFIG_CLIENT_PRIV_KEY_KEY
+	string "Name of the key where the client private key is stored"
+	default "client_key"
+	depends on DEVICE_CONFIG_NVS_FACTORY_ENABLE
+	help
+		Name of the key where the client private key is stored
+
+endmenu
+	

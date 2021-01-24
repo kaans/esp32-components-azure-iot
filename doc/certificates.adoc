@@ -1,0 +1,180 @@
+# x509 certificate based authentication
+
+:imagesdir: ./images
+
+For x509 certificate based authentication, first a root CA certificate and private key must be
+available. If not, you can generated a self-signed root CA certificate and use that
+for issueing and signing the device client certificates.
+
+For Azure IoT Hub or Azure IoT Device Provisioning service to be able to use the
+certificates for authentication, the root CA certificate (_not_ the private key)
+must be uploaded to these services and verified afterwards.
+
+With the root CA certificate, new client certificates can be issued which can then
+be deployed to the individual clients devices and be use for authentication.
+
+The following instructions use OpenSSL CLI tool to generate the certificates.
+
+The generated certificates and keys are stored in the folder `$CERTS_PATH` which can
+be set in the shell before executing the following commands:
+
+[source,bash]
+----
+export CERTS_PATH=certs
+mkdir -p $CERTS_PATH
+----
+
+This sets the output folder to the subfolder `certs/` in the current folder. Make sure
+the specified folder exists and is writeable for the current user.
+It will be created be the command `mkdir -p $CERTS_PATH` if it does not exist.
+
+WARNING: All `openssl` commands will overwrite any existing files without a warning. Make sure
+to backup relevant files bevor issuing the commands.
+
+## Generate a root CA certificate
+
+If you do not have a root CA certificate (including its private key), you first need to
+generate it. 
+
+[source,bash]
+----
+openssl genrsa -aes128 -out $CERTS_PATH/rootCA.key 4096
+openssl req -x509 -new -key $CERTS_PATH/rootCA.key -days 3650 -out $CERTS_PATH/rootCA.pem
+----
+
+The first command generates and stores the private key `rootCA.key` which is used to 
+generate the root CA certificate `rootCA.pem` in the second command.
+The private key is generated using RSA with 4096 bits and is encrypted with a password
+using aes128 algorithm
+(see or https://www.openssl.org/docs/man1.1.1/man1/openssl-genrsa.html[openssl-genrsa manpage]
+for all possible algorithms).
+The password must be entered when generating the private key.
+
+The certificate's validity is set to be valid for the next 3650 days (about 10 years).
+You can adjust this as required.
+
+NOTE: Make sure to enter
+values for the root CA certificate which describe the root CA best (e.g. location, name
+of the organization and the common name of the certificate). The content of these values
+is not important for the certificate based authentication to work correctly. But it
+will help you identify the certificate and ensure that it is the correct certificate.
+
+WARNING: Store the certificate, private key and pasword for the private key 
+savely on a password manager, a vault, a local disk or similar.
+Never publish them anywhere (like in a git repository or a shared, unprotected file share)
+and make sure that only people with the right permissions gain access to the files.
+These files allow anyone to generate certificates in the name of the root CA!
+
+## Upload and verify the root CA certificate in Azure IoT Hub and Azure IoT Device Provisioning Service
+
+In the https://portal.azure.com[Azure Portal], open the Azure IoT Hub or Azure IoT Device Provisioning Service.
+In the menu on the left open the entry _Certificates_. In the menu at the top, open _Add_ to add a new 
+root certificate. Give the certificate a name and upload the file `$CERTS_PATH/rootCA.pem`. Afterwards
+the certificate will be listed in the table of the menu entry _Certificates_ (hit _Refresh_ if it not visible yet).
+
+The _Status_ will show "Unverified" which means that the root CA certificate was uploaded successfully,
+but needs to be verified before it can be used to authenticate devices. Click on the entry in the table and
+the _Certificate Details_ should open on the right. At the bottom, click on the button _Generate Verification Code_.
+This will populate the field _Verification Code_. Copy that code and use it as the _Common Name_ in the following
+steps.
+
+NOTE: Don't close the Azure portal website or the _Certificate Details_ view. The generated _Verification
+Code_ is only valid as long as this view is open.
+
+To verify the root CA certificate, a temporary certificates needs to be generated and signed by the root CA:
+
+[source,bash]
+----
+openssl req -new -key $CERTS_PATH/rootCA.key -out $CERTS_PATH/rootCA_verification.csr
+openssl x509 -req -in $CERTS_PATH/rootCA_verification.csr -CA $CERTS_PATH/rootCA.pem -CAkey $CERTS_PATH/rootCA.key -CAcreateserial -out $CERTS_PATH/rootCA_verification_certificate.pem
+----
+
+The first command generates a new temporary certificate signing request (CSR) `$CERTS_PATH/rootCA_verification.csr`.
+You can leave all fields
+(like location or organization name) empty, *except Common Name*. Enter the _Validation Code_ copied from the
+Azure portal as the _Common Name_. Azure will use the _Common Name_ as a shared secert to validate 
+that the temporary certificate was indeed signed by the just added root CA.
+
+The second command generates the final temporary certificate `$CERTS_PATH/rootCA_verification_certificate.pem`.
+Upload this file in the Azure portal _Certificate Details_ view through the field below the button
+_Generate Verification Code_.
+
+If successful, the root CA certificate will now show the Status "Verified" and
+can now be used to authenticate device clients.
+You can now delete the files `$CERTS_PATH/rootCA_verification.csr` and 
+`$CERTS_PATH/rootCA_verification_certificate.pem` because they will not be needed anymore.
+
+[source,bash]
+----
+rm "$CERTS_PATH/rootCA_verification.csr"
+rm "$CERTS_PATH/rootCA_verification_certificate.pem"
+----
+
+## Generate a device client certificate
+
+Each device that will be deployed in the field and that needs to be connected to the 
+backend services (like Azure IoT Hub, Azure IoT Device Provisioning Service or other services
+like an MQTT broker)
+needs to identify itself individually. Thus, each device needs a client certificate. This certificate
+needs to be signed by the root CA so that the backend services can ensure the device's identity and integrity.
+
+Similar to the generation of the root CA certificate, an individual needs to be generated first.
+Using that key, a certificate signing request (CSR) is generated bevor we can get the actual client certificate.
+The CSR needs to be signed by the root CA which will result in a valid device client certificate that can
+be deployed to the device, together with its private key.
+
+[source,bash]
+----
+export DEVICE_CLIENT_PREFIX=leaf
+openssl genrsa -out "${CERTS_PATH}/${DEVICE_CLIENT_PREFIX}_private_key.pem" 4096
+openssl req -new -key "${CERTS_PATH}/${DEVICE_CLIENT_PREFIX}_private_key.pem" -out "${CERTS_PATH}/${DEVICE_CLIENT_PREFIX}.csr"
+openssl x509 -req -in "${CERTS_PATH}/${DEVICE_CLIENT_PREFIX}.csr" -days 365 -CA $CERTS_PATH/rootCA.pem \
+-CAkey $CERTS_PATH/rootCA.key -CAcreateserial -out "${CERTS_PATH}/${DEVICE_CLIENT_PREFIX}_certificate.pem"
+----
+
+The prefix of the filenames of generated certificates and keys can be set through the environment variable
+`DEVICE_CLIENT_PREFIX`. All generated files will be stored in the folder `$CERTS_PATH`.
+
+The first command generates the client's private key `${DEVICE_CLIENT_PREFIX}_private_key.pem`.
+The private key is generated using RSA with 4096 bits.
+
+NOTE: If you want to encrpyt the private key with a password, you can add the option `-aes128` 
+(or https://www.openssl.org/docs/man1.1.1/man1/openssl-genrsa.html[similar])
+to the `openssl genrsa` command. The tool will ask you to specify a password.
+Make sure you client device is able to use private keys with password encryption. Some libraries
+might not support that, especially on embedded and resource constrained devices. Omit encrypting
+the private key with a password in this case.
+
+The second command generates the certificate signing request (CSR) `${DEVICE_CLIENT_PREFIX}.csr`.
+You need to enter appropriate
+values for the requested fields (like location, name of organization and common name). These values
+will endup in the clients device certificate which is generated in the thrid step.
+
+NOTE: The openssl tool will ask for a _challenge password_. It will set a password on the CSR which can
+be used (or even be required) by the CA to be able to authenticate actions like revoking the certificate.
+This password can be left empty and is not mandatory for the CSR to work.
+
+The third step finally generates the device client certificate `${DEVICE_CLIENT_PREFIX}_certificate.pem`.
+It uses the root CA certificate and key to sign the client device CSR which will result in a valid
+and signed client device certificate.
+
+The certificate's validity is set to be valid for the next 365 days (about 1 year).
+You can adjust this as required.
+
+WARNING: Store the certificate, private key and (optional) pasword for the private key
+savely on a password manager, a vault, a local disk or similar.
+Never publish them anywhere (like in a git repository or a shared, unprotected file share)
+and make sure that only people with the right permissions gain access to the files.
+These files allow anyone to authenticate properly as the device without the backend knowing
+that the certificate might be compromised!
+
+## Deploy the client device certificate and key to a device
+
+The following two files need to be present on the device for the device to be able to authenticate
+to the backens services appropriately:
+
+* `${CERTS_PATH}/${DEVICE_CLIENT_PREFIX}_private_key.pem`
+* `${CERTS_PATH}/${DEVICE_CLIENT_PREFIX}_certificate.pem`
+
+TODO: Add description how to deploy to device via file or via NVS.
+
